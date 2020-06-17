@@ -1,0 +1,1464 @@
+<?php
+namespace App\Http\Controllers;
+use Session;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Input;
+use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use DB;
+use Config;
+
+
+class mainController extends Controller
+{
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->middleware('auth');
+    }
+
+    /**
+     * Show the application dashboard.
+     *
+     * @return \Illuminate\Http\Response
+     */
+
+
+   
+    public function aboutApaa(){
+        return view('aboutApaa');
+    }
+
+
+    
+    public function aboutApaaUpdate(Request $request){
+
+        if($request->aboutImageOld=="" && $request->aboutImageNew==""){
+            $this->validate(
+                $request, 
+                [
+                'aboutTitle' => 'required',
+                'aboutContent' => 'required',
+                'aboutImageNew' => 'required'
+                ],
+                [
+                'aboutTitle.required' => 'Please add title for About Us.',
+                'aboutContent.required' => 'Please add content for About Us.',
+                'aboutImageNew.required' => 'Please add Image.'
+                ]
+            );
+        }
+        else {
+            $this->validate(
+                $request, 
+                [
+                'aboutTitle' => 'required',
+                'aboutContent' => 'required'
+                ],
+                [
+                'aboutTitle.required' => 'Please add title for About Us.',
+                'aboutContent.required' => 'Please add content for About Us.'
+                ]
+            );
+        }
+        $user = Auth::user();
+        $oldImgAbout= (isset($request['aboutImageOld']))? $request['aboutImageOld'] : "";
+        $newImgAbout= (isset($request['aboutImageNew']))? $request['aboutImageNew'] : "";
+        $idAbout = $request->aboutId;
+        $titleAbout = $request->aboutTitle;
+        $contentAbout = $request->aboutContent;
+
+        if($oldImgAbout==""){
+            if($newImgAbout!==""){
+                $filesAboutNew = Input::file('aboutImageNew');
+                $destinationPathA = 'images/cmsImages';
+                $filenameAbout = $filesAboutNew->getClientOriginalName();
+                $randomAbout=rand(10,999999).time().rand(10,999999);
+                $filenameAbout = $randomAbout.$filenameAbout;
+                $upload_successAbout = $filesAboutNew->move($destinationPathA, $filenameAbout);
+                $updateAboutImage = $filenameAbout;
+            }
+            else{
+                $updateAboutImage="";
+            }
+        }
+        else{
+            $updateAboutImage=$oldImgAbout;
+        }
+
+        $editAbout = array(
+            'titleAbout' => $titleAbout,
+            'contentAbout' => $contentAbout,
+            'imageAbout' => $updateAboutImage,
+        );
+
+        $updateAbout = DB::table('aboutapaa')
+                    ->where('idAbout', $idAbout)
+                    ->update($editAbout);
+
+        \Session::flash('updateAboutSuccess', 'About us page updated successfully. ');
+        $aboutData = DB::table('aboutapaa')
+                    ->where('statusAbout',1)
+                    ->first();
+        return Redirect::to('aboutApaa');
+    }
+
+
+
+    public function speakerList(){
+        $user = Auth::user();
+        $listOfSpeaker = DB::table('member')
+                       ->where('role', 2)
+                       ->get();
+
+        return view('speakerList', [
+          'listOfSpeaker' => $listOfSpeaker,
+        ]);
+    }
+
+
+
+    public function enDsSpeaker($id){
+        $user = Auth::user();
+        $editStatus = DB::table('member')
+                       ->where('id1', $id)
+                       ->where('role', 2)
+                       ->first();
+        if($editStatus->status==1){
+            $newStatus=0;
+        }elseif($editStatus->status==0) {
+            $newStatus=1;
+        }
+
+        $editSpeakerStatus = array(
+            'status' => $newStatus,
+        );
+        $upSpeakerStatus = DB::table('member')
+                         ->where('id1', $id)
+                         ->update($editSpeakerStatus);
+
+        \Session::flash('updateAboutSuccess', 'Speaker status updated successfully. ');
+        return Redirect::to('speakerList');
+    }
+
+
+
+    public function delSpeaker($id){
+        $user = Auth::user();
+        $delSpeaker=DB::table('member')
+                   ->where('id1', $id)
+                   ->delete();
+
+        if($delSpeaker!=="") {
+            Session::put('deleteAboutSuccess', 'Speaker Deleted Successfully.');
+            return Redirect::to('speakerList');
+        }
+        else{
+            Session::put('deleteAboutSuccess', 'Please try again.');
+            return Redirect::to('speakerList');
+        }
+    }
+
+
+
+    public function viewSpeaker($id){
+        $user = Auth::user();
+        $speakerDetail = DB::table('member')
+                       ->where('id1', $id)
+                       ->first();
+        if($speakerDetail!==""){
+            return view('speakerView', [
+              'speakerDetail' => $speakerDetail,
+            ]);
+        }  
+    }
+
+
+    
+    public function addSpeaker(){
+        return view('addSpeaker');  
+    }
+    
+
+    public function addSpeakerSub(Request $request){
+        $this->validate(
+            $request, 
+            [
+                'name' => 'required',
+                // 'company' => 'required',
+                // 'talkTitle' => 'required',
+                // 'time' => 'required',
+                // 'room' => 'required',
+                // 'biography' => 'required',
+                // 'photo' => 'required',
+                // 'sessionLocation' => 'required',
+                // 'synopsis' => 'required'
+            ],
+            [
+                'name.required' => 'Please add name.',
+                // 'company.required' => 'Please add company.',
+                // 'talkTitle.required' => 'Please add talk title.',
+                // 'time.required' => 'Please add time.',
+                // 'room.required' => 'Please add room.',
+                // 'biography.required' => 'Please add biography.',
+                // 'photo.required' => 'Please upload photo.',
+                // 'sessionLocation.required' => 'Please add session location.',
+                // 'synopsis.required' => 'Please add synopsis.'
+            ]
+        );
+
+        $name=$request->name;
+        $company=$request->company;
+        $talkTitle=$request->talkTitle;
+        $time=$request->time;
+        $room=$request->room;
+        $biography=$request->biography;
+        $photo=$request->photo;
+        $sessionLocation=$request->sessionLocation;
+        $synopsis=$request->synopsis;
+        $photoGet= (isset($photo))? $photo : "";
+        $randId=rand(10,1000).time();
+
+
+        $email=$request->email;
+        $password=$request->password;
+
+        if($photoGet!==""){
+            $filesSpk = Input::file('photo');
+            $destinationSpk = 'images/speakerImage';
+            $filenameSpk = $filesSpk->getClientOriginalName();
+            $randomSpk=rand(10,999999).time().rand(10,999999);
+            $filenameSpk = $randomSpk.$filenameSpk;
+            $upload_successSpk = $filesSpk->move($destinationSpk, $filenameSpk);
+            $photoName = $filenameSpk;
+        }
+        else{
+            $photoName="";
+        }
+
+        $addSpeaker = array(
+            'email' => $email,
+            'member_id' => $randId,
+            'member_password' => $password,
+            'member_name' => $name,
+            'company' => $company,
+            'talkTitle' => $talkTitle,
+            'time' => $time,
+            'room' => $room,
+            'biography' => $biography,
+            'profilePicture' => $photoName,
+            'sessionsLocations' => $sessionLocation,
+            'synopsis' => $synopsis,
+            'status' => '1',
+            'role' => '2',
+        );  
+        $addSpeakers = DB::table('member')->insert($addSpeaker);
+        if($addSpeakers>0){
+            Session::flash('addSpeakerSucc', 'Speaker added successfully.'); 
+            Session::flash('alert-class', 'alert-success');
+            return Redirect::to('speakerList');
+        }
+        else {
+            Session::flash('addSpeakerErr', 'Please try again.'); 
+            Session::flash('alert-class', 'alert-danger');
+            return Redirect::to('addSpeaker');
+        }
+
+    }
+
+
+    public function editSpeaker($id){
+        $user = Auth::user();
+        $speakerEdit = DB::table('member')
+                       ->where('id1', $id)
+                       ->where('role', 2)
+                       ->first();
+        if($speakerEdit!==""){
+            return view('speakerEdit', [
+              'speakerEdit' => $speakerEdit,
+            ]);
+        }  
+    }
+
+
+
+
+    public function editSpeakerSub(Request $request){
+        $this->validate(
+            $request, 
+            [
+                'nameEdit' => 'required',
+                // 'companyEdit' => 'required',
+                // 'talkTitleEdit' => 'required',
+                // 'timeEdit' => 'required',
+                // 'roomEdit' => 'required',
+                // 'biographyEdit' => 'required',
+                // 'photo' => 'required',
+                // 'sessionLocationEdit' => 'required',
+                // 'synopsisEdit' => 'required'
+            ],
+            [
+                'nameEdit.required' => 'Please add name.',
+                // 'companyEdit.required' => 'Please add company.',
+                // 'talkTitleEdit.required' => 'Please add talk title.',
+                // 'timeEdit.required' => 'Please add time.',
+                // 'roomEdit.required' => 'Please add room.',
+                // 'biographyEdit.required' => 'Please add biography.',
+                // 'photo.required' => 'Please upload photo.',
+                // 'sessionLocationEdit.required' => 'Please add session location.',
+                // 'synopsisEdit.required' => 'Please add synopsis.'
+            ]
+        );
+        
+        $idEditSpeaker=$request->idHiddenEdit;
+        $nameEdit=$request->nameEdit;
+        $companyEdit=$request->companyEdit;
+        $talkTitleEdit=$request->talkTitleEdit;
+        $timeEdit=$request->timeEdit;
+        $roomEdit=$request->roomEdit;
+        $biographyEdit=$request->biographyEdit;
+
+        $photoNew=$request->photoEditNew;
+        $photoOld=$request->photoEditOld;
+
+        $sessionLocationEdit=$request->sessionLocationEdit;
+        $synopsisEdit=$request->synopsisEdit;
+
+
+        $passEdit=$request->passwordEdit;
+
+        $photoGetNew= (isset($photoNew))? $photoNew : "";
+        $photoGetOld= (isset($photoOld))? $photoOld : "";
+
+        if($photoGetOld==""){
+            if($photoGetNew!==""){
+                $filesSpkEdt = Input::file('photoEditNew');
+                $destinationSpkEdt = 'images/speakerImage';
+                $filenameSpkEdt = $filesSpkEdt->getClientOriginalName();
+                $randomSpkEdt=rand(10,999999).time().rand(10,999999);
+                $filenameSpkEdt = $randomSpkEdt.$filenameSpkEdt;
+                $upload_successSpkEdt = $filesSpkEdt->move($destinationSpkEdt, $filenameSpkEdt);
+                $photoNameEdit = $filenameSpkEdt;
+            }
+            else{
+                $photoNameEdit="";
+            }
+        }
+        else{
+            $photoNameEdit=$photoGetOld; 
+        }
+       
+
+        $upSpeaker = array(
+            'member_name' => $nameEdit,
+            'company' => $companyEdit,
+            'talkTitle' => $talkTitleEdit,
+            'time' => $timeEdit,
+            'room' => $roomEdit,
+            'biography' => $biographyEdit,
+            'profilePicture' => $photoNameEdit,
+            'sessionsLocations' => $sessionLocationEdit,
+            'synopsis' => $synopsisEdit,
+            'member_password' => $passEdit,
+        );
+        $addSpeakers = DB::table('member')
+                     ->where('id1', $idEditSpeaker)
+                     ->where('role', 2)
+                     ->update($upSpeaker);
+
+        if($addSpeakers!==""){
+            Session::flash('upSpeakerSucc', 'Speaker Updated successfully.'); 
+            Session::flash('alert-class', 'alert-success');
+            return Redirect::to('speakerList');
+        }
+        else {
+            Session::flash('upSpeakerErr', 'Please try again.'); 
+            Session::flash('alert-class', 'alert-danger');
+            return Redirect::to('addSpeaker');
+        }
+
+    }
+
+
+
+    public function viewAboutContPage($id, $flag, $status){
+        $user = Auth::user();
+        if($flag==1){
+            $aboutContPage1 = DB::table('aboutcountrytext')
+                            ->where('idFromAboutCountry', $id)
+                            ->first();
+            return view('aboutContPage1', [
+              'aboutContPage1' => $aboutContPage1,
+              'flag' => $flag,
+              'idMainAboutTitle' => $id,
+              'status' => $status,
+            ]);
+        }
+        else if($flag==2){
+            $aboutContPage2 = DB::table('aboutcountrylist')
+                            ->where('idFromAboutCountryList', $id)
+                            ->get();
+
+            $aboutContPageTitle2 = DB::table('aboutcountry')
+                            ->where('idAboutCountry', $id)
+                            ->first();
+
+
+            return view('aboutContPage2', [
+              'aboutContPage2' => $aboutContPage2,
+              'flag' => $flag,
+              'idMainAboutTitle' => $id,
+              'status' => $status,
+              'aboutContPageTitle2' => $aboutContPageTitle2,
+            ]);
+        }
+        else if($flag==3){
+            return view('aboutContPage3', [
+              'aboutContPage3' => $aboutContPage3,
+              'flag' => $flag,
+              'idMainAboutTitle' => $id,
+              'status' => $status,
+            ]);
+        }
+    }
+
+
+    public function aboutCountryUpdateText(Request $request){
+        $user = Auth::user();
+        $this->validate(
+            $request, 
+            [
+                'aboutTitleText' => 'required',
+                'aboutContentText' => 'required'
+            ],
+            [
+                'aboutTitleText.required' => 'Please add Title.',
+                'aboutContentText.required' => 'Please add Content.'
+            ]
+        );
+        
+        $aboutFlagText=$request->aboutFlagText;
+        $aboutIdText=$request->aboutIdText;
+        $idMainAboutTitle=$request->idMainAboutTitle;
+        $aboutStatusText=$request->aboutStatusText;
+
+        $editAboutContText = array(
+            'titleAboutText' => $request->aboutTitleText,
+            'contentAboutText' => $request->aboutContentText,
+        );  
+        $upAboutContText = DB::table('aboutcountrytext')
+                     ->where('idFromAboutCountry', $idMainAboutTitle)
+                     ->where('idAboutText', $aboutIdText)
+                     ->update($editAboutContText);
+
+        $editAboutContTitle = array(
+            'titleAboutCountry' => $request->aboutTitleText,
+        );  
+        $upAboutContTitle = DB::table('aboutcountry')
+                     ->where('idAboutCountry', $idMainAboutTitle)
+                     ->where('flagAboutCountry', $aboutFlagText)
+                     ->update($editAboutContTitle);
+
+        Session::flash('updateAboutTextSuccess', 'Page Updated successfully.'); 
+        Session::flash('alert-class', 'alert-success');
+        return Redirect::to('viewAboutContPage/'.$idMainAboutTitle.'/'.$aboutFlagText.'/'.$aboutStatusText);
+    
+    }
+
+
+    public function statusAboutText($idText, $idMain, $flag, $status){
+        if($status==0){
+            $upStatus=1;
+        }else if($status==1){
+            $upStatus=0 ;
+        }
+        
+        $stsAboutContText = array(
+            'statusAboutText' => $upStatus,
+        );  
+        $statusAboutContText = DB::table('aboutcountrytext')
+                     ->where('idFromAboutCountry', $idMain)
+                     ->where('idAboutText', $idText)
+                     ->update($stsAboutContText);
+
+        $stsAboutContTitle = array(
+            'statusAboutCountry' => $upStatus,
+        );  
+        $statusAboutContTitle = DB::table('aboutcountry')
+                     ->where('idAboutCountry', $idMain)
+                     ->where('flagAboutCountry', $flag)
+                     ->update($stsAboutContTitle);
+
+        Session::flash('updateAboutTextSuccess', 'Status Updated successfully.'); 
+        Session::flash('alert-class', 'alert-success');
+        return Redirect::to('viewAboutContPage/'.$idMain.'/'.$flag.'/'.$upStatus);
+    }
+
+
+
+    public function delAboutList($idList, $idMain, $flag, $status){
+        $user = Auth::user();
+        $listEntryDel = DB::table('aboutcountrylist')
+                       ->where('idAboutList', $idList)
+                       ->delete();
+
+        if($listEntryDel!==""){
+            Session::flash('delAboutListSuccess', 'Row deleted successfully.'); 
+            Session::flash('alert-class', 'alert-success');
+            return Redirect::to('viewAboutContPage/'.$idMain.'/'.$flag.'/'.$status);
+        }  
+    }
+
+
+    public function upAboutListRow(Request $request){
+        $post = $request->all();
+        $rowId=$post['rowIdAjax'];
+        $rowTitle=$post['rowTitleAjax'];
+        $rowContent=$post['rowContentAjax'];
+
+        $editAboutListRow = array(
+            'titleAboutList' => $rowTitle,
+            'contantAboutList' => $rowContent,
+        );
+
+        $updateAboutListRow = DB::table('aboutcountrylist')
+                            ->where('idAboutList', $rowId)
+                            ->update($editAboutListRow);
+
+        if($request->ajax()){
+            $updateAboutListResult[] = array(
+                'rowIdListAbout'  => $rowId,
+                'rowTitleListAbout'  => $rowTitle,
+                'rowContentListAbout'  => $rowContent,
+            );
+            return response()->json([
+                'updateAboutListResult' => $updateAboutListResult
+            ]);   
+        }
+    }
+
+
+    public function deleteAboutText($idText, $idMain, $flag, $status){
+
+        $user = Auth::user();
+        $textPageDel = DB::table('aboutcountrytext')
+                     ->where('idAboutText', $idText)
+                     ->where('idFromAboutCountry', $idMain)
+                     ->delete();
+
+        $textTitleDel = DB::table('aboutcountry')
+                      ->where('idAboutCountry', $idMain)
+                      ->where('flagAboutCountry', $flag)
+                      ->delete();
+
+        $redirectPage = DB::table('aboutcountry')->first();
+
+        Session::flash('aboutMainDelSucc', 'Page deleted successfully.');
+        Session::flash('alert-class', 'alert-success');
+        return Redirect::to('viewAboutContPage/'.$redirectPage->idAboutCountry.'/'.$redirectPage->flagAboutCountry.'/'.$redirectPage->statusAboutCountry);
+      
+    }
+
+
+
+    public function statusAboutList($idMain, $flag, $status){
+        if($status==0){
+            $upStatusList=1;
+        }else if($status==1){
+            $upStatusList=0 ;
+        }
+        
+        $stsAboutContList = array(
+            'statusAboutList' => $upStatusList,
+        );  
+        $statusAboutContList = DB::table('aboutcountrylist')
+                     ->where('idFromAboutCountryList', $idMain)
+                     ->update($stsAboutContList);
+
+
+        $stsAboutContTitleList = array(
+            'statusAboutCountry' => $upStatusList,
+        );
+
+        $statusAboutContTitleList = DB::table('aboutcountry')
+                                  ->where('idAboutCountry', $idMain)
+                                  ->where('flagAboutCountry', $flag)
+                                  ->update($stsAboutContTitleList);
+
+        Session::flash('updateAboutTextSuccess', 'Status Updated successfully.'); 
+        Session::flash('alert-class', 'alert-success');
+        return Redirect::to('viewAboutContPage/'.$idMain.'/'.$flag.'/'.$upStatusList);
+    }
+
+
+
+    
+    public function delAboutListMain($idMain, $flag, $status){
+
+        $delAboutContList = DB::table('aboutcountrylist')
+                             ->where('idFromAboutCountryList', $idMain)
+                             ->delete();
+
+
+        $delAboutContTitleList = DB::table('aboutcountry')
+                                  ->where('idAboutCountry', $idMain)
+                                  ->where('flagAboutCountry', $flag)
+                                  ->delete();
+
+        if($delAboutContList!=="" && $delAboutContTitleList!==""){
+
+            $redirectPage = DB::table('aboutcountry')->first();
+            Session::flash('aboutMainDelSucc', 'Page deleted successfully.');
+            Session::flash('alert-class', 'alert-success');
+            return Redirect::to('viewAboutContPage/'.$redirectPage->idAboutCountry.'/'.$redirectPage->flagAboutCountry.'/'.$redirectPage->statusAboutCountry);
+
+        }
+    }
+
+    
+    public function addRowAboutList(Request $request){
+        $post = $request->all();
+
+        $mainIdAboutList=$post['mainIdAddListHidden'];
+        $flagAboutList=$post['flagAddListHidden'];
+        $statusAboutList=$post['statusAddListHidden'];
+        
+        $listInputTitle=$post['listInput']['titleAboutList'];
+        $rowCount=count($listInputTitle);
+
+        if($rowCount>0){
+            for($i=0; $i<$rowCount; $i++){
+                $titleOfRow=$post['listInput']['titleAboutList'][$i];
+                $contentOfRow=$post['listInput']['contentAboutList'][$i];
+
+                $addListRowAbout = array(
+                    'idFromAboutCountryList' => $mainIdAboutList,
+                    'titleAboutList' => $titleOfRow,
+                    'contantAboutList' => $contentOfRow,
+                    'statusAboutList' => '1',
+                );  
+                $addListRowAbouts = DB::table('aboutcountrylist')->insert($addListRowAbout);
+            }
+
+            Session::flash('aboutMainAddSucc', 'Row Added successfully.');
+            Session::flash('alert-class', 'alert-success');
+            return Redirect::to('viewAboutContPage/'.$mainIdAboutList.'/'.$flagAboutList.'/'.$statusAboutList);
+
+
+        }
+    }
+
+
+    public function addSimpleAboutPage(){
+        return view('addSimpleAboutPage');
+    }
+
+
+    
+    public function addSimpleAboutPageSub(Request $request){
+        $user = Auth::user();
+
+        $this->validate(
+            $request, 
+            [
+                'simpleAboutTitle' => 'required',
+                'simpleAboutContent' => 'required',
+                'simpleAboutIcon' => 'required'
+                
+            ],
+            [
+                'simpleAboutTitle.required' => 'Please add Title.',
+                'simpleAboutContent.required' => 'Please add Content.',
+                'simpleAboutIcon.required' => 'Please add Image.'
+            ]
+        );
+
+
+        $simpleAboutTitle=$request->simpleAboutTitle;
+        $simpleAboutContent=$request->simpleAboutContent;
+        $photoSimple=$request->simpleAboutIcon;
+
+        $photoSimpleGet= (isset($photoSimple))? $photoSimple : "";
+
+
+        if($photoSimpleGet!==""){
+            $filesSimple = Input::file('simpleAboutIcon');
+            $destinationSimple = 'images/aboutCountry';
+            $filenameSimple = $filesSimple->getClientOriginalName();
+            $randomSimple=rand(10,999999).time().rand(10,999999);
+            $filenameSimple = $randomSimple.$filenameSimple;
+            $upload_successSimple = $filesSimple->move($destinationSimple, $filenameSimple);
+            $iconNameSimple = $filenameSimple;
+        }else{
+            $iconNameSimple = ""; 
+        }
+
+        $simpleAboutAddTitle = array(
+            'titleAboutCountry' => $simpleAboutTitle,
+            'iconAboutCountry' => $iconNameSimple,
+            'flagAboutCountry' => '1',
+            'statusAboutCountry' => '1',
+        );  
+        $simpleAboutAddTitles = DB::table('aboutcountry')->insert($simpleAboutAddTitle);
+
+        $lastidTitle = DB::getPdo()->lastInsertId();
+
+
+        $simpleAboutAddPage = array(
+            'idFromAboutCountry' => $lastidTitle,
+            'titleAboutText' => $simpleAboutTitle,
+            'contentAboutText' => $simpleAboutContent,
+            'statusAboutText' => '1',
+        );  
+        $simpleAboutAddPages = DB::table('aboutcountrytext')->insert($simpleAboutAddPage);
+
+
+        Session::flash('addAboutTextSuccess', 'Page Added successfully.'); 
+        Session::flash('alert-class', 'alert-success');
+        return Redirect::to('viewAboutContPage/'.$lastidTitle.'/1/1');
+    }
+
+
+    public function addListAboutPage(){
+        return view('addListAboutPage');
+    }
+
+
+    
+    public function addListAboutPageSub(Request $request){
+        $user = Auth::user();
+        $post = $request->all();
+        $this->validate(
+            $request, 
+            [
+                'listAboutTitle' => 'required',
+                'listAboutIcon' => 'required'    
+            ],
+            [
+                'listAboutTitle.required' => 'Please add Title.',
+                'listAboutIcon.required' => 'Please add Icon.'
+            ]
+        );
+
+        $listAboutTitle=$post['listAboutTitle'];
+
+        $photoList=$post['listAboutIcon'];
+        $photoListGet= (isset($photoList))? $photoList : "";
+
+        if($photoListGet!==""){
+            $filesList = Input::file('listAboutIcon');
+            $destinationList = 'images/aboutCountry';
+            $filenameList = $filesList->getClientOriginalName();
+            $randomList=rand(10,999999).time().rand(10,999999);
+            $filenameList = $randomList.$filenameList;
+            $upload_successList = $filesList->move($destinationList, $filenameList);
+            $iconNameList = $filenameList;
+        }else{
+            $iconNameList = ""; 
+        }
+
+        $simpleAboutAddTitle = array(
+            'titleAboutCountry' => $listAboutTitle,
+            'iconAboutCountry' => $iconNameList,
+            'flagAboutCountry' => '2',
+            'statusAboutCountry' => '1',
+        );  
+        $simpleAboutAddTitles = DB::table('aboutcountry')->insert($simpleAboutAddTitle);
+
+        $lastidTitle = DB::getPdo()->lastInsertId();
+        $mainIdAboutList = $lastidTitle;
+
+        $listInputTitle=$post['listInput']['titleAboutList'];
+        $rowCount=count($listInputTitle);
+
+        if($rowCount>0){
+            for($i=0; $i<$rowCount; $i++){
+                $titleOfRow=$post['listInput']['titleAboutList'][$i];
+                $contentOfRow=$post['listInput']['contentAboutList'][$i];
+
+                $addListRowAbout = array(
+                    'idFromAboutCountryList' => $mainIdAboutList,
+                    'titleAboutList' => $titleOfRow,
+                    'contantAboutList' => $contentOfRow,
+                    'statusAboutList' => '1',
+                );  
+                $addListRowAbouts = DB::table('aboutcountrylist')->insert($addListRowAbout);
+            }
+
+            Session::flash('aboutMainAddSucc', 'Page Added successfully.');
+            Session::flash('alert-class', 'alert-success');
+            return Redirect::to('viewAboutContPage/'.$mainIdAboutList.'/2/1');
+        }
+    }
+
+
+    public function importantDates(){
+        $user = Auth::user();
+        $importantDates = DB::table('importantdates')
+                        ->get();
+                        
+        return view('importantDates', [
+          'importantDates' => $importantDates,
+        ]);
+    }
+
+
+    public function upImpDateRow(Request $request){
+        $user = Auth::user();
+        $post = $request->all();
+        $rowId=$post['rowIdAjax'];
+        $rowTitle=$post['rowTitleAjax'];
+        $rowFrom=$post['rowFromAjax'];
+        $rowTo=$post['rowToAjax'];
+
+        $editImpDateRow = array(
+            'titleImpDate' => $rowTitle,
+            'fromImpDate' => $rowFrom,
+            'toImpDate' => $rowTo,
+        );
+
+        $updateImpDateRow = DB::table('importantdates')
+                            ->where('idImpDate', $rowId)
+                            ->update($editImpDateRow);
+
+        if($request->ajax()){
+            $updateImpDateResult[] = array(
+                'rowIdImpDate'  => $rowId,
+                'rowTitleImpDate'  => $rowTitle,
+                'rowFromImpDate'  => $rowFrom,
+                'rowToImpDate'  => $rowTo,
+            );
+
+            return response()->json([
+                'updateImpDateResult' => $updateImpDateResult
+            ]);   
+        }
+    }
+
+
+    public function delImpDate($id){
+        $user = Auth::user();
+        $delSpeaker=DB::table('importantdates')
+                   ->where('idImpDate', $id)
+                   ->delete();
+
+        if($delSpeaker!=="") {
+            Session::put('deleteImpSuccess', 'Row Deleted Successfully.');
+            return Redirect::to('importantDates');
+        }
+        else{
+            Session::put('deleteImpSuccess', 'Please try again.');
+            return Redirect::to('importantDates');
+        }
+
+    }
+
+
+    public function addRowImpDate(Request $request){
+        $user = Auth::user();
+        $post = $request->all();
+    
+        $listImpDateTitle=$post['listInput']['titleImpDate'];
+        $rowCount=count($listImpDateTitle);
+
+        if($rowCount>0){
+            for($i=0; $i<$rowCount; $i++){
+
+                $titleImpDate=$post['listInput']['titleImpDate'][$i];
+                $fromImpDate=$post['listInput']['fromImpDate'][$i];
+                $toImpDate=$post['listInput']['toImpDate'][$i];
+
+                $addListRowAbout = array(
+                    'titleImpDate' => $titleImpDate,
+                    'fromImpDate' => $fromImpDate,
+                    'toImpDate' => $toImpDate,
+                    'statusImpDates' => '1',
+                );  
+                $addListRowAbouts = DB::table('importantdates')->insert($addListRowAbout);
+            }
+
+            Session::flash('impRowAddSucc', 'Rows Added successfully.');
+            Session::flash('alert-class', 'alert-success');
+            return Redirect::to('importantDates');
+        }
+    }
+
+
+    public function programVenue(){
+        $user = Auth::user();
+        $programVenue = DB::table('programmevenue')
+                      ->get();
+                        
+        return view('programVenue', [
+          'programVenue' => $programVenue,
+        ]);
+    }
+
+
+    public function upProgVenueRow(Request $request){
+        $user = Auth::user();
+        $post = $request->all();
+        $rowId=$post['rowIdAjax'];
+        $rowTitle=$post['rowTitleAjax'];
+    
+        $editProgVenueRow = array(
+            'nameProgVenue' => $rowTitle,
+        );
+
+        $updateProgVenueRow = DB::table('programmevenue')
+                            ->where('idProgVenue', $rowId)
+                            ->update($editProgVenueRow);
+
+        if($request->ajax()){
+            $updateProgVenueResult[] = array(
+                'rowIdProgVenue'  => $rowId,
+                'rowTitleProgVenue'  => $rowTitle,
+            );
+
+            return response()->json([
+                'updateProgVenueResult' => $updateProgVenueResult
+            ]);   
+        }
+    }
+
+
+    public function delProgVenue($id){
+        $user = Auth::user();
+        $delProgVenue=DB::table('programmevenue')
+                   ->where('idProgVenue', $id)
+                   ->delete();
+
+        if($delProgVenue!=="") {
+            Session::put('deleteVenueSuccess', 'Row Deleted Successfully.');
+            return Redirect::to('programVenue');
+        }
+        else{
+            Session::put('deleteVenueSuccess', 'Please try again.');
+            return Redirect::to('programVenue');
+        }
+
+    }
+
+
+
+    public function addRowProgVenue(Request $request){
+        $user = Auth::user();
+        $post = $request->all();
+    
+        $listProgVenueTitle=$post['listInput']['titleProgVenue'];
+        $rowCount=count($listProgVenueTitle);
+
+        if($rowCount>0){
+            for($i=0; $i<$rowCount; $i++){
+
+                $titleProgVenue=$post['listInput']['titleProgVenue'][$i];
+                
+                $addListProgVenue = array(
+                    'nameProgVenue' => $titleProgVenue,
+                    'statusProgVenue' => '1',
+                );
+                $addListProgVenues = DB::table('programmevenue')->insert($addListProgVenue);
+            }
+
+            Session::flash('progVenueAddSucc', 'Rows Added successfully.');
+            Session::flash('alert-class', 'alert-success');
+            return Redirect::to('programVenue');
+        }
+    }
+
+
+
+    public function programList(){
+        $user = Auth::user();
+        $programList = DB::table('programme')
+                      ->get();
+                        
+        return view('programList', [
+          'programList' => $programList,
+        ]);
+    }
+
+
+
+    
+    public function viewProgram($id){
+        $user = Auth::user();
+        $progDetail = DB::table('programme')
+                    ->join('programmedate', 'programme.dateProgramme', '=', 'programmedate.idProgeDate')
+                    ->join('programmevenue', 'programme.venueProgramme', '=', 'programmevenue.idProgVenue')
+                    ->where('programme.idProgramme', $id)
+                    ->first();
+
+        if($progDetail!==""){
+            return view('programView', [
+              'progDetail' => $progDetail,
+            ]);
+        }  
+    }
+
+
+
+    public function editProgram($id){
+        $user = Auth::user();
+        $progEdit = DB::table('programme')
+                    ->join('programmedate', 'programme.dateProgramme', '=', 'programmedate.idProgeDate')
+                    ->join('programmevenue', 'programme.venueProgramme', '=', 'programmevenue.idProgVenue')
+                    ->where('programme.idProgramme', $id)
+                    ->first();
+
+        $venueDrop = DB::table('programmevenue')
+                    ->where('statusProgVenue', 1)
+                    ->get();
+                    
+        $dateDrop = DB::table('programmedate')
+                    ->where('statusProgeDate', 1)
+                    ->get();
+
+        if($progEdit!==""){
+            return view('editProgram', [
+              'progEdit' => $progEdit,
+              'venueDrop' => $venueDrop,
+              'dateDrop' => $dateDrop,
+            ]);
+        }  
+    }
+
+
+
+    public function editProgSub(Request $request){
+        $user = Auth::user();
+        $this->validate(
+            $request, 
+            [
+                'titleProgramme' => 'required',
+                'contentProgramme' => 'required',
+                'dateProgramme' => 'required',
+                'venueProgramme' => 'required',
+                'timeFromProgramme' => 'required',
+                'timeToProgramme' => 'required'
+            ],
+            [
+                'titleProgramme.required' => 'Please add Title.',
+                'contentProgramme.required' => 'Please add Content.',
+                'dateProgramme.required' => 'Please add Date.',
+                'venueProgramme.required' => 'Please add Venue.',
+                'timeFromProgramme.required' => 'Please add start time.',
+                'timeToProgramme.required' => 'Please add End time.'
+            ]
+        );
+        $programmeId=$request->idProgramme;
+        $editProg = array(
+            'titleProgramme' => $request->titleProgramme,
+            'contentProgramme' => $request->contentProgramme,
+            'dateProgramme' => $request->dateProgramme,
+            'venueProgramme' => $request->venueProgramme,
+            'timeFromProgramme' => $request->timeFromProgramme,
+            'timeToProgramme' => $request->timeToProgramme,
+        );
+        $updateProg = DB::table('programme')
+                     ->where('idProgramme', $programmeId)
+                     ->update($editProg);
+
+        if($updateProg!==""){
+            Session::flash('upProgSucc', 'Program Updated successfully.'); 
+            Session::flash('alert-class', 'alert-success');
+            return Redirect::to('programList');
+        }
+        else {
+            Session::flash('upProgErr', 'Please try again.'); 
+            Session::flash('alert-class', 'alert-danger');
+            return Redirect::to('editProgram/'.$programmeId);
+        }
+    }
+
+
+
+    public function enDsProgram($id){
+        $user = Auth::user();
+        $editStatus = DB::table('programme')
+                       ->where('idProgramme', $id)
+                       ->first();
+        if($editStatus->statusProgramme==1){
+            $newStatus=0;
+        }elseif($editStatus->statusProgramme==0) {
+            $newStatus=1;
+        }
+
+        $editProgStatus = array(
+            'statusProgramme' => $newStatus,
+        );
+        $upProgStatus = DB::table('programme')
+                         ->where('idProgramme', $id)
+                         ->update($editProgStatus);
+
+        Session::flash('upProgSucc', 'Program status Updated successfully.'); 
+            Session::flash('alert-class', 'alert-success');
+        return Redirect::to('programList');
+    }
+    
+
+    public function delProgram($id){
+        $user = Auth::user();
+        $delProgram=DB::table('programme')
+                   ->where('idProgramme', $id)
+                   ->delete();
+
+        if($delProgram!=="") {
+            Session::put('upProgSucc', 'Program Deleted Successfully.');
+            return Redirect::to('programList');
+        }
+        else{
+            Session::put('upProgSucc', 'Please try again.');
+            return Redirect::to('programList');
+        }
+    }
+
+
+    public function addProgram(){
+        $venueDrop = DB::table('programmevenue')
+                    ->where('statusProgVenue', 1)
+                    ->get();
+                    
+        $dateDrop = DB::table('programmedate')
+                    ->where('statusProgeDate', 1)
+                    ->get();
+        return view('addProgram', [
+              'venueDrop' => $venueDrop,
+              'dateDrop' => $dateDrop,
+            ]);
+    }
+
+
+    public function addProgSub(Request $request){
+        $user = Auth::user();
+        $this->validate(
+            $request, 
+            [
+                'titleProgrammeAdd' => 'required',
+                'contentProgrammeAdd' => 'required',
+                'dateProgrammeAdd' => 'required',
+                'venueProgrammeAdd' => 'required',
+                'timeFromProgrammeAdd' => 'required',
+                'timeToProgrammeAdd' => 'required'
+            ],
+            [
+                'titleProgrammeAdd.required' => 'Please add Title.',
+                'contentProgrammeAdd.required' => 'Please add Content.',
+                'dateProgrammeAdd.required' => 'Please add Date.',
+                'venueProgrammeAdd.required' => 'Please add Venue.',
+                'timeFromProgrammeAdd.required' => 'Please add start time.',
+                'timeToProgrammeAdd.required' => 'Please add End time.'
+            ]
+        );
+
+        $addProg = array(
+            'titleProgramme' => $request->titleProgrammeAdd,
+            'contentProgramme' => $request->contentProgrammeAdd,
+            'dateProgramme' => $request->dateProgrammeAdd,
+            'venueProgramme' => $request->venueProgrammeAdd,
+            'timeFromProgramme' => $request->timeFromProgrammeAdd,
+            'timeToProgramme' => $request->timeToProgrammeAdd,
+            'statusProgramme' => 1,
+        );
+
+        $addProgs = DB::table('programme')->insert($addProg);
+        if($addProgs>0){
+            Session::flash('upProgSucc', 'Program added successfully.'); 
+            Session::flash('alert-class', 'alert-success');
+            return Redirect::to('programList');
+        }
+        else {
+            Session::flash('addProgError', 'Please try again.'); 
+            Session::flash('alert-class', 'alert-danger');
+            return Redirect::to('addProgram');
+        }
+    }
+
+
+
+    
+    public function attendeesList(){
+        $user = Auth::user();
+        $listOfAttendees = DB::table('member')
+                       ->where('role', 3)
+                       ->get();
+
+        return view('attendeesList', [
+          'listOfAttendees' => $listOfAttendees,
+        ]);
+    }
+
+
+    public function viewAttendees($id){
+        $user = Auth::user();
+        $attendeesDetail = DB::table('member')
+                       ->where('id1', $id)
+                       ->where('role', 3)
+                       ->first();
+        if($attendeesDetail!==""){
+            return view('attendeesView', [
+              'attendeesDetail' => $attendeesDetail,
+            ]);
+        }  
+    }
+
+
+    public function editAttendees($id){
+        $user = Auth::user();
+        $attendeesEdit = DB::table('member')
+                       ->where('id1', $id)
+                       ->where('role', 3)
+                       ->first();
+        if($attendeesEdit!==""){
+            return view('attendeesEdit', [
+              'attendeesEdit' => $attendeesEdit,
+            ]);
+        }  
+    }
+
+    
+    public function editAttendeeSub(Request $request){
+        $this->validate(
+            $request, 
+            [
+                'nameEditAttendee' => 'required',
+                'companyEditAttendee' => 'required',
+                'jobTitleEditAttendee' => 'required',
+                'messageEditAttendee' => 'required',
+                'passwordEditAttendee' => 'required'
+            ],
+            [
+                'nameEditAttendee.required' => 'Please add name.',
+                'companyEditAttendee.required' => 'Please add company.',
+                'jobTitleEditAttendee.required' => 'Please add Job title.',
+                'messageEditAttendee.required' => 'Please add Message.',
+                'passwordEditAttendee.required' => 'Please add Password.'
+            ]
+        );
+        
+        $idEditAttendee=$request->idHiddenEditAttendee;
+
+        
+
+        $photoNewAttendee=$request->photoEditNewAttendee;
+        $photoOldAttendee=$request->photoEditOldAttendee;
+
+        $photoGetNewAttendee= (isset($photoNewAttendee))? $photoNewAttendee : "";
+        $photoGetOldAttendee= (isset($photoOldAttendee))? $photoOldAttendee : "";
+
+        if($photoGetOldAttendee==""){
+            if($photoGetNewAttendee!==""){
+                $filesAttEdt = Input::file('photoEditNewAttendee');
+                $destinationAttEdt = 'images/attendeesImage';
+                $filenameAttEdt = $filesAttEdt->getClientOriginalName();
+                $randomAttEdt=rand(10,999999).time().rand(10,999999);
+                $filenameAttEdt = $randomAttEdt.$filenameAttEdt;
+                $upload_successAttEdt = $filesAttEdt->move($destinationAttEdt, $filenameAttEdt);
+                $photoNameEditAtt = $filenameAttEdt;
+            }
+            else{
+                $photoNameEditAtt="";
+            }
+        }
+        else{
+            $photoNameEditAtt=$photoGetOldAttendee; 
+        }
+       
+
+        $upSpeaker = array(
+            'member_name' => $request->nameEditAttendee,
+            'company' => $request->companyEditAttendee,
+            'jobTitle' => $request->jobTitleEditAttendee,
+            'message' => $request->messageEditAttendee,
+            'member_password' => $request->passwordEditAttendee,
+            'profilePicture' => $photoNameEditAtt,
+        );
+        $addSpeakers = DB::table('member')
+                     ->where('id1', $idEditAttendee)
+                     ->where('role', 3)
+                     ->update($upSpeaker);
+
+        if($addSpeakers!==""){
+            Session::flash('upAttendeeSucc', 'Attendee Updated successfully.'); 
+            Session::flash('alert-class', 'alert-success');
+            return Redirect::to('attendeesList');
+        }
+        else {
+            Session::flash('upAttendeeErr', 'Please try again.'); 
+            Session::flash('alert-class', 'alert-danger');
+            return Redirect::to('editAttendees/'.$idEditAttendee);
+        }
+
+    }
+
+
+
+    public function enDsAttendees($id){
+        $user = Auth::user();
+        $editStatus = DB::table('member')
+                       ->where('id1', $id)
+                       ->where('role', 3)
+                       ->first();
+        if($editStatus->status==1){
+            $newStatus=0;
+        }elseif($editStatus->status==0) {
+            $newStatus=1;
+        }
+
+        $editAttendeeStatus = array(
+            'status' => $newStatus,
+        );
+        $upSpeakerStatus = DB::table('member')
+                         ->where('id1', $id)
+                         ->update($editAttendeeStatus);
+
+        \Session::flash('upAttendeeSucc', 'Attendee status updated successfully. ');
+        return Redirect::to('attendeesList');
+    }
+
+
+    
+    public function delAttendees($id){
+        $user = Auth::user();
+        $delAttendees=DB::table('member')
+                   ->where('id1', $id)
+                   ->delete();
+
+        if($delAttendees!=="") {
+            Session::put('upAttendeeSucc', 'Speaker Deleted Successfully.');
+            return Redirect::to('attendeesList');
+        }
+    }
+
+
+    
+    public function addAttendees(){
+        return view('addAttendees');  
+    }
+
+
+    
+    public function addAttendeeSub(Request $request){
+        $this->validate(
+            $request, 
+            [
+                'nameAttendee' => 'required',
+                'companyAttendee' => 'required',
+                'jobTitleAttendee' => 'required',
+                'messageAttendee' => 'required',
+                'photoAttendee' => 'required',
+                'emailAttendee' => 'required',
+                'passwordAttendee' => 'required'
+            ],
+            [
+                'nameAttendee.required' => 'Please add name.',
+                'companyAttendee.required' => 'Please add company.',
+                'jobTitleAttendee.required' => 'Please add talk title.',
+                'messageAttendee.required' => 'Please add time.',
+                'photoAttendee.required' => 'Please add room.',
+                'emailAttendee.required' => 'Please add biography.',
+                'passwordAttendee.required' => 'Please upload photo.'
+            ]
+        );
+
+      
+        $photoAtt=$request->photoAttendee;
+        $photoGetAtt= (isset($photoAtt))? $photoAtt : "";
+        $randId=rand(10,1000).time();
+
+
+        if($photoGetAtt!==""){
+            $filesAttAdd = Input::file('photoAttendee');
+            $destinationAttAdd = 'images/attendeesImage';
+            $filenameAttAdd = $filesAttAdd->getClientOriginalName();
+            $randomAttAdd=rand(10,999999).time().rand(10,999999);
+            $filenameAttAdd = $randomAttAdd.$filenameAttAdd;
+            $upload_successAttAdd = $filesAttAdd->move($destinationAttAdd, $filenameAttAdd);
+            $photoNameAtt = $filenameAttAdd;
+        }
+        else{
+            $photoNameAtt="";
+        }
+
+        $addSpeaker = array(
+            'member_name' => $request->nameAttendee,
+            'member_id' => $randId,
+            'company' => $request->companyAttendee,
+            'jobTitle' => $request->jobTitleAttendee,
+            'message' => $request->messageAttendee,
+            'email' => $request->emailAttendee,
+            'member_password' => $request->passwordAttendee,
+            'profilePicture' => $photoNameAtt,
+            'status' => '1',
+            'role' => '3',
+        );  
+        $addSpeakers = DB::table('member')->insert($addSpeaker);
+        if($addSpeakers>0){
+            Session::flash('addAttSucc', 'Speaker added successfully.'); 
+            Session::flash('alert-class', 'alert-success');
+            return Redirect::to('attendeesList');
+        }
+        else {
+            Session::flash('addAttErr', 'Please try again.'); 
+            Session::flash('alert-class', 'alert-danger');
+            return Redirect::to('addAttendees');
+        }
+
+    }
+
+
+    public function memberList(){
+        $user = Auth::user();
+        $listOfMembers = DB::table('member')
+                       ->where('role', 1)
+                       ->get();
+
+        return view('memberList', [
+          'listOfMembers' => $listOfMembers,
+        ]);
+    }
+
+
+
+    
+    public function viewMember($id){
+        $user = Auth::user();
+        $memberDetail = DB::table('member')
+                       ->where('id1', $id)
+                       ->where('role', 1)
+                       ->first();
+        if($memberDetail!==""){
+            return view('memberView', [
+              'memberDetail' => $memberDetail,
+            ]);
+        }  
+    }
+
+
+    public function editMember($id){
+        $user = Auth::user();
+        $memberEdit = DB::table('member')
+                       ->where('id1', $id)
+                       ->where('role', 1)
+                       ->first();
+        if($memberEdit!==""){
+            return view('memberEdit', [
+              'memberEdit' => $memberEdit,
+            ]);
+        }  
+    }
+
+
+
+
+
+}
+
+
+
